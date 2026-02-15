@@ -23,18 +23,29 @@ FALLBACK_SP500_TICKERS = [
 
 class YFinanceMarketDataProvider(MarketDataProvider):
     def __init__(self) -> None:
-        self.price_cache_dir = Path(settings.price_cache_dir)
-        self.meta_cache_dir = Path(settings.meta_cache_dir)
+        self.price_cache_dir = self._resolve_writable_dir(Path(settings.price_cache_dir), "prices")
+        self.meta_cache_dir = self._resolve_writable_dir(Path(settings.meta_cache_dir), "meta")
         self.data_dir = Path(__file__).resolve().parent.parent / "data"
+        self.runtime_data_dir = self._resolve_writable_dir(Path("/tmp/is_market_bluffing/data"), "data")
         self.default_universe_size = int(settings.default_universe_size)
 
-        self.price_cache_dir.mkdir(parents=True, exist_ok=True)
-        self.meta_cache_dir.mkdir(parents=True, exist_ok=True)
-        self.data_dir.mkdir(parents=True, exist_ok=True)
+        # `data_dir` is packaged as read-only in serverless; do not attempt to create it.
 
         self.sp500_snapshot_path = self.data_dir / "sp500_snapshot_feb2026.csv"
-        self.sp500_live_cache_path = self.data_dir / "sp500_live_cache.csv"
+        self.sp500_live_cache_path = self.runtime_data_dir / "sp500_live_cache.csv"
         self.default_universe_seed_path = self.data_dir / "default_universe_300.csv"
+
+    def _resolve_writable_dir(self, preferred: Path, fallback_leaf: str) -> Path:
+        try:
+            preferred.mkdir(parents=True, exist_ok=True)
+            probe = preferred / ".write_probe"
+            probe.write_text("ok", encoding="utf-8")
+            probe.unlink(missing_ok=True)
+            return preferred
+        except Exception:
+            fallback = Path("/tmp/is_market_bluffing") / fallback_leaf
+            fallback.mkdir(parents=True, exist_ok=True)
+            return fallback
 
     def get_default_universe(self) -> UniverseData:
         live = self._load_live_sp500_if_available()

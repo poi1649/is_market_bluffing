@@ -33,6 +33,7 @@ LEGACY_TICKER_MAP = {
 
 class YFinanceMarketDataProvider(MarketDataProvider):
     def __init__(self) -> None:
+        self._configure_yfinance_cache()
         self.price_cache_dir = self._resolve_writable_dir(Path(settings.price_cache_dir), "prices")
         self.meta_cache_dir = self._resolve_writable_dir(Path(settings.meta_cache_dir), "meta")
         self.data_dir = Path(__file__).resolve().parent.parent / "data"
@@ -44,6 +45,25 @@ class YFinanceMarketDataProvider(MarketDataProvider):
         self.sp500_snapshot_path = self.data_dir / "sp500_snapshot_feb2026.csv"
         self.sp500_live_cache_path = self.runtime_data_dir / "sp500_live_cache.csv"
         self.default_universe_seed_path = self.data_dir / "default_universe_300.csv"
+
+    def _configure_yfinance_cache(self) -> None:
+        cache_root = Path("/tmp/is_market_bluffing/yfinance-cache")
+        cache_root.mkdir(parents=True, exist_ok=True)
+        cache_path = cache_root.as_posix()
+
+        try:
+            yf.set_tz_cache_location(cache_path)
+        except Exception:
+            logger.exception("Failed to set yfinance tz cache location: %s", cache_path)
+
+        try:
+            from yfinance import cache as yf_cache  # type: ignore
+
+            set_cache_location = getattr(yf_cache, "set_cache_location", None)
+            if callable(set_cache_location):
+                set_cache_location(cache_path)
+        except Exception:
+            logger.exception("Failed to set yfinance general cache location: %s", cache_path)
 
     def _resolve_writable_dir(self, preferred: Path, fallback_leaf: str) -> Path:
         try:

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import io
+from contextlib import redirect_stderr, redirect_stdout
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -19,6 +21,11 @@ FALLBACK_SP500_TICKERS = [
     "AMAT", "BLK", "DE", "GILD", "MDT", "LMT", "C", "T", "BA", "AXP", "BKNG", "TJX", "CI", "SYK", "ADP", "ZTS", "PLD", "ISRG", "MMC", "MO",
     "SCHW", "GE", "CB", "SO", "ADI", "PNC", "ELV", "DUK", "TMUS", "MU", "AON", "VRTX", "REGN", "BSX", "CL", "APD", "ITW", "SHW", "SNPS", "EOG",
 ]
+
+LEGACY_TICKER_MAP = {
+    # AmerisourceBergen renamed to Cencora
+    "ABC": "COR",
+}
 
 
 class YFinanceMarketDataProvider(MarketDataProvider):
@@ -108,7 +115,8 @@ class YFinanceMarketDataProvider(MarketDataProvider):
         return TickerMeta(market_cap_musd=market_cap_musd, beta=beta_value)
 
     def _normalize_ticker(self, ticker: str) -> str:
-        return ticker.strip().upper().replace(".", "-")
+        normalized = ticker.strip().upper().replace(".", "-")
+        return LEGACY_TICKER_MAP.get(normalized, normalized)
 
     def _dedupe_keep_order(self, tickers: list[str]) -> list[str]:
         seen: set[str] = set()
@@ -250,16 +258,17 @@ class YFinanceMarketDataProvider(MarketDataProvider):
 
     def _fetch_price_history(self, ticker: str) -> pd.DataFrame:
         try:
-            frame = yf.download(
-                ticker,
-                period="10y",
-                interval="1d",
-                auto_adjust=False,
-                progress=False,
-                group_by="ticker",
-                actions=False,
-                threads=False,
-            )
+            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
+                frame = yf.download(
+                    ticker,
+                    period="10y",
+                    interval="1d",
+                    auto_adjust=False,
+                    progress=False,
+                    group_by="ticker",
+                    actions=False,
+                    threads=False,
+                )
         except Exception:
             return pd.DataFrame(columns=["High", "Low", "Close"])
 

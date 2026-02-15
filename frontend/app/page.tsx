@@ -430,6 +430,8 @@ export default function Page() {
                 <thead>
                   <tr>
                     <th>티커</th>
+                    <th>기간내 최고가</th>
+                    <th>최고가대비 하락률(%)</th>
                     <th>하락 종료일</th>
                     <th>하락 종료가</th>
                     <th>회복 종료일</th>
@@ -440,6 +442,8 @@ export default function Page() {
                   {result.declined_stocks.map((stock) => (
                     <tr key={stock.ticker}>
                       <td>{stock.ticker}</td>
+                      <td>{stock.peak_price.toFixed(2)}</td>
+                      <td>{stock.decline_pct.toFixed(2)}</td>
                       <td>{stock.trough_date}</td>
                       <td>{stock.trough_price.toFixed(2)}</td>
                       <td>{stock.recovery_date ?? "-"}</td>
@@ -448,7 +452,7 @@ export default function Page() {
                   ))}
                   {!result.declined_stocks.length && (
                     <tr>
-                      <td colSpan={5}>조건을 만족한 종목이 없습니다.</td>
+                      <td colSpan={7}>조건을 만족한 종목이 없습니다.</td>
                     </tr>
                   )}
                 </tbody>
@@ -463,6 +467,8 @@ export default function Page() {
                 <thead>
                   <tr>
                     <th>티커</th>
+                    <th>기간내 최고가</th>
+                    <th>최고가대비 하락률(%)</th>
                     <th>하락 종료일</th>
                     <th>하락 종료가</th>
                     <th>회복 종료일</th>
@@ -473,6 +479,8 @@ export default function Page() {
                   {result.recovered_stocks.map((stock) => (
                     <tr key={`${stock.ticker}-recovered`}>
                       <td>{stock.ticker}</td>
+                      <td>{stock.peak_price.toFixed(2)}</td>
+                      <td>{stock.decline_pct.toFixed(2)}</td>
                       <td>{stock.trough_date}</td>
                       <td>{stock.trough_price.toFixed(2)}</td>
                       <td>{stock.recovery_date ?? "-"}</td>
@@ -481,7 +489,7 @@ export default function Page() {
                   ))}
                   {!result.recovered_stocks.length && (
                     <tr>
-                      <td colSpan={5}>회복 완료 종목이 없습니다.</td>
+                      <td colSpan={7}>회복 완료 종목이 없습니다.</td>
                     </tr>
                   )}
                 </tbody>

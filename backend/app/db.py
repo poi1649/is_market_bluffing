@@ -6,7 +6,22 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from app.config import settings
 
 
-engine = create_engine(settings.database_url, future=True, connect_args={"check_same_thread": False} if settings.database_url.startswith("sqlite") else {})
+def _normalize_database_url(raw_url: str) -> str:
+    url = raw_url.strip().strip('"').strip("'")
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg2://" + url[len("postgres://") :]
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg2://" + url[len("postgresql://") :]
+    return url
+
+
+normalized_database_url = _normalize_database_url(settings.database_url)
+
+engine = create_engine(
+    normalized_database_url,
+    future=True,
+    connect_args={"check_same_thread": False} if normalized_database_url.startswith("sqlite") else {},
+)
 SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False, future=True)
 Base = declarative_base()
 

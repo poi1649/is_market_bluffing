@@ -64,4 +64,5 @@ python3 scripts/update_sp500_snapshot.py
 
 ## Deploy
 
-Render Blueprint 배포는 `/Users/bojun.kim/codex/is_market_bluffing/render.yaml` 과 `/Users/bojun.kim/codex/is_market_bluffing/DEPLOY.md`를 참고하세요.
+- Vercel 배포 가이드: `/Users/bojun.kim/codex/is_market_bluffing/DEPLOY_VERCEL.md`
+- Render 배포 가이드(기존): `/Users/bojun.kim/codex/is_market_bluffing/DEPLOY.md`

@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+
+# Node
+node_modules/
+.next/
+
+# Env
+.env
+.env.local
+
+# Data and cache
+backend/app/cache/prices/*.csv
+backend/app/cache/meta/*.json
+backend/data.db

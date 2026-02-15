@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: is-market-bluffing-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: DATABASE_URL
+        value: sqlite:////var/data/data.db
+      - key: PRICE_CACHE_DIR
+        value: /var/data/cache/prices
+      - key: META_CACHE_DIR
+        value: /var/data/cache/meta
+      - key: DEFAULT_UNIVERSE_SIZE
+        value: "300"
+      - key: FRONTEND_ORIGIN
+        value: https://is-market-bluffing-frontend.onrender.com
+      - key: FRONTEND_ORIGINS_CSV
+        value: https://is-market-bluffing-frontend.onrender.com
+    disk:
+      name: backend-data
+      mountPath: /var/data
+      sizeGB: 1
+
+  - type: web
+    name: is-market-bluffing-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run start -- -p $PORT
+    envVars:
+      - key: NEXT_PUBLIC_API_BASE_URL
+        value: https://is-market-bluffing-backend.onrender.com

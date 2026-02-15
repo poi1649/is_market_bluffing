@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import io
+import logging
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import date, datetime, timedelta
 from pathlib import Path
@@ -12,6 +13,8 @@ import yfinance as yf
 
 from app.config import settings
 from app.services.data_provider import MarketDataProvider, TickerMeta, UniverseData
+
+logger = logging.getLogger(__name__)
 
 
 FALLBACK_SP500_TICKERS = [
@@ -270,9 +273,11 @@ class YFinanceMarketDataProvider(MarketDataProvider):
                     threads=False,
                 )
         except Exception:
+            logger.exception("Price download failed for ticker=%s", ticker)
             return pd.DataFrame(columns=["High", "Low", "Close"])
 
         if frame is None or frame.empty:
+            logger.warning("Price download returned empty frame for ticker=%s", ticker)
             return pd.DataFrame(columns=["High", "Low", "Close"])
 
         if isinstance(frame.columns, pd.MultiIndex):
@@ -283,6 +288,8 @@ class YFinanceMarketDataProvider(MarketDataProvider):
                 return pd.DataFrame(columns=["High", "Low", "Close"])
 
         out = frame[["High", "Low", "Close"]].dropna().sort_index()
+        if out.empty:
+            logger.warning("Price frame has no usable OHLC rows for ticker=%s", ticker)
         return out
 
     def _read_meta_cache(self, ticker: str) -> dict:
@@ -307,9 +314,11 @@ class YFinanceMarketDataProvider(MarketDataProvider):
                 info = getattr(obj, "info", {}) or {}
                 market_cap = info.get("marketCap")
             if market_cap is None:
+                logger.warning("Market cap missing for ticker=%s", ticker)
                 return None
             return float(market_cap) / 1_000_000.0
         except Exception:
+            logger.exception("Market cap fetch failed for ticker=%s", ticker)
             return None
 
     def _compute_beta(self, ticker: str, beta_lookback_days: int) -> float:

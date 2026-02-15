@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 
@@ -8,6 +9,8 @@ import pandas as pd
 from dateutil.relativedelta import relativedelta
 
 from app.services.data_provider import MarketDataProvider
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -97,6 +100,7 @@ class BluffAnalysisService:
             try:
                 prices = self.provider.get_price_history(ticker, start_date, end_date)
                 if prices.empty or len(prices) < 2:
+                    logger.warning("Ticker %s skipped: no usable price history in lookback window", ticker)
                     failed_tickers.append(ticker)
                     continue
 
@@ -148,6 +152,7 @@ class BluffAnalysisService:
                     )
                 )
             except Exception:
+                logger.exception("Ticker %s failed during analysis and was excluded from result", ticker)
                 failed_tickers.append(ticker)
                 continue
 

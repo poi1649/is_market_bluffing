@@ -13,6 +13,7 @@ class Settings(BaseSettings):
     app_env: str = "development"
     frontend_origin: str = "http://localhost:3000"
     frontend_origins_csv: str = ""
+    strict_origin_check: bool = True
 
     database_url: str = f"sqlite:///{(BASE_DIR / 'data.db').as_posix()}"
 
@@ -38,10 +39,11 @@ def get_cors_origins() -> list[str]:
         if item:
             origins.append(item)
 
-    if "http://localhost:3000" not in origins:
-        origins.append("http://localhost:3000")
-    if "http://127.0.0.1:3000" not in origins:
-        origins.append("http://127.0.0.1:3000")
+    if settings.app_env.lower() != "production":
+        if "http://localhost:3000" not in origins:
+            origins.append("http://localhost:3000")
+        if "http://127.0.0.1:3000" not in origins:
+            origins.append("http://127.0.0.1:3000")
 
     deduped: list[str] = []
     seen: set[str] = set()

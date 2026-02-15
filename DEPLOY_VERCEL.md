@@ -32,6 +32,7 @@ Vercel > Backend Project > `Settings` > `Environment Variables`
 - `PRICE_CACHE_DIR=/tmp/prices`
 - `META_CACHE_DIR=/tmp/meta`
 - `DEFAULT_UNIVERSE_SIZE=300`
+- `STRICT_ORIGIN_CHECK=true`
 
 프론트 URL 확인 후 설정:
 - `FRONTEND_ORIGIN=https://<your-frontend-domain>`

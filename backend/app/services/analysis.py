@@ -118,19 +118,22 @@ class BluffAnalysisService:
                 declined_event_count += len(events)
                 recovered_event_count += sum(1 for event in events if event.recovered)
 
-                representative = max(events, key=lambda event: event.decline_pct)
-
                 recovered_events = [event for event in events if event.recovered]
                 recovered = bool(recovered_events)
+
+                # Always display peak/trough/recovery from the same event so date ordering is consistent.
+                if recovered:
+                    representative = max(recovered_events, key=lambda event: event.decline_pct)
+                else:
+                    representative = max(events, key=lambda event: event.decline_pct)
 
                 recovery_date = None
                 recovery_price = None
                 recovery_days = None
-                if recovered:
-                    earliest = min(recovered_events, key=lambda event: event.recovery_date or date.max)
-                    recovery_date = earliest.recovery_date
-                    recovery_price = earliest.recovery_price
-                    recovery_days = earliest.recovery_days
+                if representative.recovered:
+                    recovery_date = representative.recovery_date
+                    recovery_price = representative.recovery_price
+                    recovery_days = representative.recovery_days
 
                 declined_stocks.append(
                     StockAnalysis(

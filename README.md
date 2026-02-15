@@ -64,5 +64,5 @@ python3 scripts/update_sp500_snapshot.py
 
 ## Deploy
 
-- Vercel 배포 가이드: `/Users/bojun.kim/codex/is_market_bluffing/DEPLOY_VERCEL.md`
-- Render 배포 가이드(기존): `/Users/bojun.kim/codex/is_market_bluffing/DEPLOY.md`
+- Vercel 배포 가이드: `DEPLOY_VERCEL.md`
+- Render 배포 가이드(기존): `DEPLOY.md`

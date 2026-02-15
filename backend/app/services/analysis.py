@@ -64,6 +64,8 @@ class AnalysisSummary:
     event_bluff_rate_pct: float
 
     recovery_days_distribution: dict[str, float | None]
+    failed_ticker_count: int
+    failed_tickers: list[str]
 
     declined_stocks: list[StockAnalysis]
     recovered_stocks: list[StockAnalysis]
@@ -89,59 +91,65 @@ class BluffAnalysisService:
         declined_stocks: list[StockAnalysis] = []
         declined_event_count = 0
         recovered_event_count = 0
+        failed_tickers: list[str] = []
 
         for ticker in tickers:
-            prices = self.provider.get_price_history(ticker, start_date, end_date)
-            if prices.empty or len(prices) < 2:
-                continue
+            try:
+                prices = self.provider.get_price_history(ticker, start_date, end_date)
+                if prices.empty or len(prices) < 2:
+                    failed_tickers.append(ticker)
+                    continue
 
-            meta = self.provider.get_ticker_meta(ticker, self.beta_lookback_days)
-            if meta.market_cap_musd is not None and meta.market_cap_musd < min_market_cap_musd:
-                continue
+                meta = self.provider.get_ticker_meta(ticker, self.beta_lookback_days)
+                if meta.market_cap_musd is not None and meta.market_cap_musd < min_market_cap_musd:
+                    continue
 
-            beta = float(meta.beta)
-            threshold = decline_threshold_pct * max(1.0, beta)
+                beta = float(meta.beta)
+                threshold = decline_threshold_pct * max(1.0, beta)
 
-            events = _find_qualifying_events(prices, threshold)
-            if not events:
-                continue
+                events = _find_qualifying_events(prices, threshold)
+                if not events:
+                    continue
 
-            declined_event_count += len(events)
-            recovered_event_count += sum(1 for event in events if event.recovered)
+                declined_event_count += len(events)
+                recovered_event_count += sum(1 for event in events if event.recovered)
 
-            representative = max(events, key=lambda event: event.decline_pct)
+                representative = max(events, key=lambda event: event.decline_pct)
 
-            recovered_events = [event for event in events if event.recovered]
-            recovered = bool(recovered_events)
+                recovered_events = [event for event in events if event.recovered]
+                recovered = bool(recovered_events)
 
-            recovery_date = None
-            recovery_price = None
-            recovery_days = None
-            if recovered:
-                earliest = min(recovered_events, key=lambda event: event.recovery_date or date.max)
-                recovery_date = earliest.recovery_date
-                recovery_price = earliest.recovery_price
-                recovery_days = earliest.recovery_days
+                recovery_date = None
+                recovery_price = None
+                recovery_days = None
+                if recovered:
+                    earliest = min(recovered_events, key=lambda event: event.recovery_date or date.max)
+                    recovery_date = earliest.recovery_date
+                    recovery_price = earliest.recovery_price
+                    recovery_days = earliest.recovery_days
 
-            declined_stocks.append(
-                StockAnalysis(
-                    ticker=ticker,
-                    decline_pct=round(representative.decline_pct, 4),
-                    threshold_pct=round(threshold, 4),
-                    beta=round(beta, 4),
-                    peak_date=representative.peak_date,
-                    trough_date=representative.trough_date,
-                    peak_price=round(representative.peak_price, 4),
-                    trough_price=round(representative.trough_price, 4),
-                    market_cap_musd=round(meta.market_cap_musd, 3) if meta.market_cap_musd is not None else None,
-                    recovered=recovered,
-                    recovery_date=recovery_date,
-                    recovery_price=round(recovery_price, 4) if recovery_price is not None else None,
-                    recovery_days=recovery_days,
-                    qualifying_events=len(events),
-                    recovered_events=len(recovered_events),
+                declined_stocks.append(
+                    StockAnalysis(
+                        ticker=ticker,
+                        decline_pct=round(representative.decline_pct, 4),
+                        threshold_pct=round(threshold, 4),
+                        beta=round(beta, 4),
+                        peak_date=representative.peak_date,
+                        trough_date=representative.trough_date,
+                        peak_price=round(representative.peak_price, 4),
+                        trough_price=round(representative.trough_price, 4),
+                        market_cap_musd=round(meta.market_cap_musd, 3) if meta.market_cap_musd is not None else None,
+                        recovered=recovered,
+                        recovery_date=recovery_date,
+                        recovery_price=round(recovery_price, 4) if recovery_price is not None else None,
+                        recovery_days=recovery_days,
+                        qualifying_events=len(events),
+                        recovered_events=len(recovered_events),
+                    )
                 )
-            )
+            except Exception:
+                failed_tickers.append(ticker)
+                continue
 
         declined_stocks.sort(key=lambda item: item.decline_pct, reverse=True)
         recovered_stocks = [item for item in declined_stocks if item.recovered]
@@ -173,6 +181,8 @@ class BluffAnalysisService:
             recovered_event_count=recovered_event_count,
             event_bluff_rate_pct=round(event_bluff_rate * 100.0, 4),
             recovery_days_distribution=distribution,
+            failed_ticker_count=len(failed_tickers),
+            failed_tickers=sorted(set(failed_tickers)),
             declined_stocks=declined_stocks,
             recovered_stocks=recovered_stocks,
         )

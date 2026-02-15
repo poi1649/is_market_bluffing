@@ -69,6 +69,8 @@ class AnalyzeResponse(BaseModel):
     event_bluff_rate_pct: float
 
     recovery_days_distribution: RecoveryDistribution
+    failed_ticker_count: int = 0
+    failed_tickers: list[str] = Field(default_factory=list)
 
     declined_stocks: list[StockResult]
     recovered_stocks: list[StockResult]

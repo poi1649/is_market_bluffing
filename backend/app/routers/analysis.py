@@ -97,6 +97,8 @@ def _serialize_run(run: AnalysisRun, results: list[AnalysisRunResult], session_i
             median=run.recovery_days_median,
             p75=run.recovery_days_p75,
         ),
+        failed_ticker_count=0,
+        failed_tickers=[],
         declined_stocks=mapped_results,
         recovered_stocks=recovered,
     )
@@ -198,6 +200,8 @@ def analyze(
         recovered_event_count=summary.recovered_event_count,
         event_bluff_rate_pct=summary.event_bluff_rate_pct,
         recovery_days_distribution=RecoveryDistribution(**summary.recovery_days_distribution),
+        failed_ticker_count=summary.failed_ticker_count,
+        failed_tickers=summary.failed_tickers,
         declined_stocks=declined,
         recovered_stocks=recovered,
     )

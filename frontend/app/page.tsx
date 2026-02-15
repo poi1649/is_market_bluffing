@@ -338,6 +338,15 @@ export default function Page() {
         </section>
       )}
 
+      {result && result.failed_ticker_count > 0 && (
+        <section className="panel error-panel">
+          <p>
+            데이터 조회 실패 티커 {result.failed_ticker_count}개는 제외하고 계산했습니다:{" "}
+            {result.failed_tickers.join(", ")}
+          </p>
+        </section>
+      )}
+
       <section className="panel history-panel">
         <div className="history-head">
           <h2>세션 실행 이력</h2>

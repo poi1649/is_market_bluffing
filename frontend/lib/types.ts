@@ -49,6 +49,8 @@ export type AnalyzeResponse = {
   recovered_event_count: number;
   event_bluff_rate_pct: number;
   recovery_days_distribution: RecoveryDistribution;
+  failed_ticker_count: number;
+  failed_tickers: string[];
   declined_stocks: StockResult[];
   recovered_stocks: StockResult[];
 };

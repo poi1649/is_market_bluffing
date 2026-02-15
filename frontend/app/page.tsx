@@ -232,6 +232,12 @@ export default function Page() {
     setTickerSuggestions([]);
   }
 
+  function selectSuggestion(ticker: string) {
+    addTicker(ticker);
+    setTickerInput("");
+    setTickerSuggestions([]);
+  }
+
   function onTickerInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
     if (event.key === "Enter" || event.key === ",") {
       event.preventDefault();
@@ -354,8 +360,10 @@ export default function Page() {
             </div>
 
             <form onSubmit={onSubmit} className="form-stack">
-              <label className="field-group">
-                <span className="field-label">티커 선택</span>
+              <div className="field-group">
+                <label className="field-label" htmlFor="ticker-input">
+                  티커 선택
+                </label>
 
                 <div className="ticker-chip-list">
                   {selectedTickers.map((ticker) => (
@@ -371,6 +379,7 @@ export default function Page() {
 
                 <div className="ticker-input-row">
                   <input
+                    id="ticker-input"
                     type="text"
                     value={tickerInput}
                     onChange={(event) => setTickerInput(event.target.value)}
@@ -396,23 +405,22 @@ export default function Page() {
                           type="button"
                           className="suggest-item"
                           key={ticker}
-                          onClick={() => {
-                            addTicker(ticker);
-                            setTickerInput("");
-                            setTickerSuggestions([]);
-                          }}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => selectSuggestion(ticker)}
                         >
                           {ticker}
                         </button>
                       ))}
                   </div>
                 )}
-              </label>
+              </div>
 
               <div className="number-fields-grid">
-                <label className="field-group">
+                <label className="field-group" htmlFor="lookback-months">
                   <span className="field-label">관측 기간 n (개월)</span>
                   <input
+                    id="lookback-months"
+                    className="compact-number-input"
                     type="number"
                     min={1}
                     max={60}
@@ -421,9 +429,11 @@ export default function Page() {
                   />
                 </label>
 
-                <label className="field-group">
+                <label className="field-group" htmlFor="decline-threshold-pct">
                   <span className="field-label">기준 하락률 m (%)</span>
                   <input
+                    id="decline-threshold-pct"
+                    className="compact-number-input"
                     type="number"
                     min={1}
                     max={100}
@@ -433,9 +443,11 @@ export default function Page() {
                   />
                 </label>
 
-                <label className="field-group">
+                <label className="field-group" htmlFor="min-market-cap-musd">
                   <span className="field-label">최소 시가총액 i (백만$)</span>
                   <input
+                    id="min-market-cap-musd"
+                    className="compact-number-input"
                     type="number"
                     min={0}
                     step={1}

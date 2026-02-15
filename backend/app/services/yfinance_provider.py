@@ -3,12 +3,22 @@ from __future__ import annotations
 import json
 import io
 import logging
+import os
 from contextlib import redirect_stderr, redirect_stdout
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
+RUNTIME_CACHE_HOME = Path("/tmp/is_market_bluffing/.cache")
+try:
+    RUNTIME_CACHE_HOME.mkdir(parents=True, exist_ok=True)
+except Exception:
+    # Best effort only; yfinance may still use its own fallback.
+    pass
+os.environ.setdefault("XDG_CACHE_HOME", RUNTIME_CACHE_HOME.as_posix())
+
 import yfinance as yf
 
 from app.config import settings

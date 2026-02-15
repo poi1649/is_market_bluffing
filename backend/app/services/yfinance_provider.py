@@ -1,11 +1,10 @@
 from __future__ import annotations
 
 import json
-import io
 import logging
 import os
-from contextlib import redirect_stderr, redirect_stdout
 from datetime import date, datetime, timedelta
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -101,12 +100,18 @@ class YFinanceMarketDataProvider(MarketDataProvider):
 
     def get_price_history(self, ticker: str, start_date: date, end_date: date) -> pd.DataFrame:
         normalized = self._normalize_ticker(ticker)
+        cache_path = self._price_cache_path(normalized)
         cached = self._read_price_cache(normalized)
-        if not cached.empty and self._cache_covers(cached, start_date, end_date):
+        refreshed_today = self._cache_refreshed_today(cache_path)
+
+        if not cached.empty and self._cache_covers(cached, start_date, end_date, allow_stale_last=refreshed_today):
             return self._slice_prices(cached, start_date, end_date)
 
         fetched = self._fetch_price_history(normalized)
         if fetched.empty:
+            if not cached.empty:
+                self._mark_cache_refreshed(cache_path)
+                return self._slice_prices(cached, start_date, end_date)
             return pd.DataFrame(columns=["High", "Low", "Close"])
 
         self._write_price_cache(normalized, fetched)
@@ -276,12 +281,33 @@ class YFinanceMarketDataProvider(MarketDataProvider):
             save.rename(columns={save.columns[0]: "Date"}, inplace=True)
         save.to_csv(self._price_cache_path(ticker), index=False)
 
-    def _cache_covers(self, frame: pd.DataFrame, start_date: date, end_date: date) -> bool:
+    def _cache_refreshed_today(self, cache_path: Path) -> bool:
+        if not cache_path.exists():
+            return False
+        try:
+            refreshed_date = datetime.fromtimestamp(cache_path.stat().st_mtime).date()
+            return refreshed_date == date.today()
+        except Exception:
+            return False
+
+    def _mark_cache_refreshed(self, cache_path: Path) -> None:
+        if not cache_path.exists():
+            return
+        try:
+            os.utime(cache_path, None)
+        except Exception:
+            pass
+
+    def _cache_covers(self, frame: pd.DataFrame, start_date: date, end_date: date, allow_stale_last: bool = False) -> bool:
         if frame.empty:
             return False
         first = frame.index.min().date()
         last = frame.index.max().date()
-        return first <= start_date and last >= end_date - timedelta(days=2)
+        if first > start_date:
+            return False
+        if allow_stale_last:
+            return True
+        return last >= end_date - timedelta(days=2)
 
     def _slice_prices(self, frame: pd.DataFrame, start_date: date, end_date: date) -> pd.DataFrame:
         sliced = frame.loc[(frame.index.date >= start_date) & (frame.index.date <= end_date)].copy()
@@ -291,17 +317,16 @@ class YFinanceMarketDataProvider(MarketDataProvider):
 
     def _fetch_price_history(self, ticker: str) -> pd.DataFrame:
         try:
-            with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()):
-                frame = yf.download(
-                    ticker,
-                    period="10y",
-                    interval="1d",
-                    auto_adjust=False,
-                    progress=False,
-                    group_by="ticker",
-                    actions=False,
-                    threads=False,
-                )
+            frame = yf.download(
+                ticker,
+                period="10y",
+                interval="1d",
+                auto_adjust=False,
+                progress=False,
+                group_by="ticker",
+                actions=False,
+                threads=False,
+            )
         except Exception:
             logger.exception("Price download failed for ticker=%s", ticker)
             return pd.DataFrame(columns=["High", "Low", "Close"])
@@ -351,35 +376,44 @@ class YFinanceMarketDataProvider(MarketDataProvider):
             logger.exception("Market cap fetch failed for ticker=%s", ticker)
             return None
 
+    @lru_cache(maxsize=16)
+    def _market_returns_and_var(self, beta_lookback_days: int, as_of: str) -> tuple[pd.Series, float]:
+        end_date = date.fromisoformat(as_of)
+        start_date = end_date - timedelta(days=beta_lookback_days)
+        market = self.get_price_history("^GSPC", start_date, end_date)
+        if market.empty:
+            return pd.Series(dtype=float), 0.0
+
+        market_returns = market["Close"].pct_change().dropna()
+        if market_returns.empty:
+            return pd.Series(dtype=float), 0.0
+
+        market_var = float(np.var(market_returns.to_numpy(), ddof=1))
+        if market_var <= 1e-12:
+            return pd.Series(dtype=float), 0.0
+        return market_returns, market_var
+
     def _compute_beta(self, ticker: str, beta_lookback_days: int) -> float:
         end_date = date.today()
         start_date = end_date - timedelta(days=beta_lookback_days)
 
         stock = self.get_price_history(ticker, start_date, end_date)
-        market = self.get_price_history("^GSPC", start_date, end_date)
-
-        if stock.empty or market.empty:
+        if stock.empty:
             return 1.0
 
-        joined = pd.DataFrame(
-            {
-                "stock": stock["Close"],
-                "market": market["Close"],
-            }
-        ).dropna()
+        stock_returns = stock["Close"].pct_change().dropna()
+        if stock_returns.empty:
+            return 1.0
 
+        market_returns, market_var = self._market_returns_and_var(beta_lookback_days, end_date.isoformat())
+        if market_returns.empty or market_var <= 1e-12:
+            return 1.0
+
+        joined = pd.DataFrame({"stock": stock_returns, "market": market_returns}).dropna()
         if len(joined) < 60:
             return 1.0
 
-        returns = joined.pct_change().dropna()
-        if returns.empty:
-            return 1.0
-
-        market_var = float(np.var(returns["market"].to_numpy(), ddof=1))
-        if market_var <= 1e-12:
-            return 1.0
-
-        cov = float(np.cov(returns["stock"].to_numpy(), returns["market"].to_numpy(), ddof=1)[0, 1])
+        cov = float(np.cov(joined["stock"].to_numpy(), joined["market"].to_numpy(), ddof=1)[0, 1])
         beta = cov / market_var
 
         if not np.isfinite(beta):
